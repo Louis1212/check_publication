@@ -1,0 +1,95 @@
+import scrapy
+from SMG.items import SmgItem
+
+class publicationSpider(scrapy.Spider):
+    name = "publ"
+    allowed_domains = ["adsabs.harvard.edu"]
+    download_delay = 2
+    ln = ''
+    fn = ''
+    sm = '01'
+    sy = '2000'
+    em = '12'
+    ey = '2015'
+    nEntry = '500'
+    start_urls = []
+
+    def __init__(self, first, last, start_month = None, start_year = None,
+                 end_month = None, end_year = None, entry_number = None,
+                 *args, **kwargs):
+        super(publicationSpider, self).__init__(*args, **kwargs)
+        self.ln = last
+        self.fn = first
+        if start_month != None:
+            self.sm = str(start_month)
+        if start_year != None:
+            self.sy = str(start_year)
+        if end_month != None:
+            self.em = str(end_month)
+        if end_year != None:
+            self.ey = str(end_year)
+        if entry_number != None:
+            self.nEntry = str(entry_number)
+        
+        self.start_urls.append(
+        ("http://adsabs.harvard.edu/cgi-bin/nph-abs_connect?db_key=AST"
+        "&db_key=PRE&qform=AST&arxiv_sel=astro-ph&arxiv_sel=cond-mat"
+        "&arxiv_sel=cs&arxiv_sel=gr-qc&arxiv_sel=hep-ex&arxiv_sel=hep-lat"
+        "&arxiv_sel=hep-ph&arxiv_sel=hep-th&arxiv_sel=math&arxiv_sel=math-ph"
+        "&arxiv_sel=nlin&arxiv_sel=nucl-ex&arxiv_sel=nucl-th"
+        "&arxiv_sel=physics&arxiv_sel=quant-ph&arxiv_sel=q-bio&sim_query=YES"
+        "&ned_query=YES&adsobj_query=YES&aut_logic=OR&obj_logic=OR"
+        "&author={0}%2C+{1}&object=&start_mon={2}&start_year={3}"
+        "&end_mon={4}&end_year={5}&ttl_logic=OR&title=&txt_logic=OR"
+        "&text=&nr_to_return={6}&start_nr=1&jou_pick=ALL&ref_stems="
+        "&data_and=ALL&group_and=ALL&start_entry_day=&start_entry_mon="
+        "&start_entry_year=&end_entry_day=&end_entry_mon=&end_entry_year="
+        "&min_score=&sort=SCORE&data_type=SHORT&aut_syn=YES&ttl_syn=YES"
+        "&txt_syn=YES&aut_wt=1.0&obj_wt=1.0&ttl_wt=0.3&txt_wt=3.0"
+        "&aut_wgt=YES&obj_wgt=YES&ttl_wgt=YES&txt_wgt=YES&ttl_sco=YES"
+        "&txt_sco=YES&version=1").format(self.ln, self.fn, self.sm,
+                                         self.sy, self.em, self.ey,
+                                         self.nEntry)
+        )
+
+    
+
+    def parse(self, response):
+        for node in response.xpath(('//tr[position() mod 3 = 0]/'
+                                    'td[@width]/a/@href')):
+            url = response.urljoin(node.extract())
+            yield scrapy.Request(url, callback=self.parse_page)
+
+
+    def parse_page(self, response):
+        item = SmgItem()
+        paper_type = 1 # which means abstract
+        item['paper_type'] = 1
+        for node in response.xpath('//tr'):
+            section = node.xpath('.//b/text()').extract()
+            if len(section) > 0:
+                section = section[0]
+                content = node.xpath('.//td[@valign]/text()').extract()
+                if(section == 'Title:'):
+                    item['paper_name'] = content[0].encode('ascii', 'ignore')
+                elif(section == 'Authors:'):
+                    item['authors'] = node.xpath('.//a/text()').extract()
+                elif(section == 'Affiliation:'):
+                    item['affiliation'] = content[0].encode('ascii', 'ignore')
+                elif(section == 'Publication:'):
+                    item['publication'] = content[0].encode('ascii', 'ignore')
+                elif(section == 'Publication Date:'):
+                    item['paper_date'] = int(node.xpath('.//td[@valign]/text()')\
+                                           .re(r'\d+\/(\d\d\d\d)')[0])
+                elif(section == 'DOI:'):
+                    item['doi'] = node.xpath('.//a/text()').extract()[0]\
+                                             .encode('ascii', 'replace')
+                    paper_type = 0 # which means peer viewed paper
+                    item['paper_type'] = 0
+                elif(section[0] == 'Origin:'):
+                    tmp = node.xpath('.//a/text()').extract()
+                    if len(tmp) == 0:
+                        item['journal'] = content[0].encode('ascii', 'ignore')
+                    else:
+                        item['journal'] = tmp[0]
+        yield item
