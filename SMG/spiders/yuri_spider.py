@@ -14,7 +14,7 @@ class publicationSpider(scrapy.Spider):
     nEntry = '500'
     start_urls = []
 
-    def __init__(self, first, last, start_month = None, start_year = None,
+    def __init__(self, first = None, last = None, start_month = None, start_year = None,
                  end_month = None, end_year = None, entry_number = None,
                  *args, **kwargs):
         super(publicationSpider, self).__init__(*args, **kwargs)
@@ -65,31 +65,31 @@ class publicationSpider(scrapy.Spider):
         item = SmgItem()
         paper_type = 1 # which means abstract
         item['paper_type'] = 1
-        for node in response.xpath('//tr'):
-            section = node.xpath('.//b/text()').extract()
+        for node in response.xpath('//tr/td/b'):
+            section = node.xpath('.//text()').extract()
             if len(section) > 0:
                 section = section[0]
-                content = node.xpath('.//td[@valign]/text()').extract()
+                content = node.xpath('../../td[@valign]/text()').extract()\
+                          [0].encode('ascii', 'ignore')
+                link_content = node.xpath('../../td/a/text()').extract()
                 if(section == 'Title:'):
-                    item['paper_name'] = content[0].encode('ascii', 'ignore')
+                    item['paper_name'] = content
                 elif(section == 'Authors:'):
-                    item['authors'] = node.xpath('.//a/text()').extract()
+                    item['authors'] = link_content
                 elif(section == 'Affiliation:'):
-                    item['affiliation'] = content[0].encode('ascii', 'ignore')
+                    item['affiliation'] = content
                 elif(section == 'Publication:'):
-                    item['publication'] = content[0].encode('ascii', 'ignore')
+                    item['publication'] = content
                 elif(section == 'Publication Date:'):
-                    item['paper_date'] = int(node.xpath('.//td[@valign]/text()')\
+                    item['paper_date'] = int(node.xpath('../../td[@valign]/text()')\
                                            .re(r'\d+\/(\d\d\d\d)')[0])
                 elif(section == 'DOI:'):
-                    item['doi'] = node.xpath('.//a/text()').extract()[0]\
-                                             .encode('ascii', 'replace')
+                    item['doi'] = link_content[0].encode('ascii', 'replace')
                     paper_type = 0 # which means peer viewed paper
                     item['paper_type'] = 0
                 elif(section[0] == 'Origin:'):
-                    tmp = node.xpath('.//a/text()').extract()
-                    if len(tmp) == 0:
-                        item['journal'] = content[0].encode('ascii', 'ignore')
+                    if len(link_content) == 0:
+                        item['journal'] = content
                     else:
-                        item['journal'] = tmp[0]
+                        item['journal'] = link_content[0]
         yield item
