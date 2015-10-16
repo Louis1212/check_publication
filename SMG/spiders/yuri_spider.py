@@ -69,8 +69,8 @@ class publicationSpider(scrapy.Spider):
             section = node.xpath('.//text()').extract()
             if len(section) > 0:
                 section = section[0]
-                content = node.xpath('../../td[@valign]/text()').extract()\
-                          [0].encode('ascii', 'ignore')
+                content = "".join(node.xpath('../../td[@valign]/text()').extract())\
+                            .encode('ascii', 'ignore')
                 link_content = node.xpath('../../td/a/text()').extract()
                 if(section == 'Title:'):
                     item['paper_name'] = content
@@ -87,7 +87,7 @@ class publicationSpider(scrapy.Spider):
                     item['doi'] = link_content[0].encode('ascii', 'replace')
                     paper_type = 0 # which means peer viewed paper
                     item['paper_type'] = 0
-                elif(section[0] == 'Origin:'):
+                elif(section == 'Origin:'):
                     if len(link_content) == 0:
                         item['journal'] = content
                     else:

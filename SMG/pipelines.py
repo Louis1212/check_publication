@@ -124,7 +124,10 @@ class SmgPipeline(object):
             pool_file = open('paper.txt', 'r')
             
         for line in pool_file:
-            existed.add(pattern.match(line).group(1))
+            try:
+                existed.add(pattern.match(line).group(1))
+            except:
+                break
 
         pool_file.close()
         return existed
